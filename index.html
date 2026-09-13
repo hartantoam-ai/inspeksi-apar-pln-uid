@@ -105,3 +105,36 @@ document.querySelector('#exportMaster').onclick=()=>csvDownload('data-master-apa
 renderApars();
 })();
 </script>
+
+<script>
+(() => {
+  let qrTargetIds=[];
+  let qrReady;
+  function loadQr(){
+    if(window.QRCode) return Promise.resolve();
+    if(qrReady) return qrReady;
+    qrReady=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});
+    return qrReady;
+  }
+  function ensureQrUi(){
+    const toolbar=document.querySelector('#apar .toolbar .actions');
+    if(toolbar&&!document.getElementById('qrPrintAll')){toolbar.insertAdjacentHTML('afterbegin','<button class="btn" type="button" id="qrScan">Pindai QR</button><button class="btn" type="button" id="qrPrintAll">Cetak QR</button>');document.getElementById('qrScan').onclick=()=>document.getElementById('qrFile').click();document.getElementById('qrPrintAll').onclick=()=>showLabels(data.apars.map(a=>a.id),true);}
+    if(!document.getElementById('qrFile')){const input=document.createElement('input');input.id='qrFile';input.type='file';input.accept='image/*';input.capture='environment';input.hidden=true;input.onchange=readQr;document.body.appendChild(input);}
+    const home=document.getElementById('homeScanQr');if(home) home.onclick=()=>document.getElementById('qrFile').click();
+    if(!document.getElementById('qrOverlay'))document.body.insertAdjacentHTML('beforeend','<section id="qrOverlay" class="hidden"><div class="card"><div class="toolbar no-print"><h2>Label QR APAR</h2><div class="actions"><button class="btn" id="closeQr">Kembali</button><button class="btn primary" id="printQrNow">Cetak / Simpan PDF</button></div></div><div id="qrLabels" class="qr-labels"></div></div></section>');
+    document.getElementById('closeQr').onclick=closeLabels;document.getElementById('printQrNow').onclick=()=>{document.body.classList.add('print-qr');window.print();setTimeout(()=>document.body.classList.remove('print-qr'),700);};
+  }
+  function enhanceRows(){
+    document.querySelectorAll('#aparTable tr').forEach(row=>{const id=row.querySelector('td strong')?.textContent?.trim();const actions=row.querySelector('td:last-child');if(!id||!actions||actions.querySelector('[data-qr]'))return;const b=document.createElement('button');b.type='button';b.className='btn small';b.textContent='QR';b.dataset.qr=id;b.onclick=e=>{e.stopPropagation();showLabels([id],false);};actions.prepend(b);actions.prepend(document.createTextNode(' '));});
+  }
+  function showLabels(ids,all){ensureQrUi();qrTargetIds=ids;const overlay=document.getElementById('qrOverlay');overlay.classList.remove('hidden');overlay.querySelector('h2').textContent=all?'Label QR Semua APAR':'Label QR APAR';const labels=document.getElementById('qrLabels');const apars=data.apars.filter(a=>ids.includes(a.id));labels.innerHTML=apars.map(a=>'<div class="qr-label"><div id="qr-'+a.id.replace(/[^a-zA-Z0-9_-]/g,'')+'"></div><strong>'+a.id+'</strong><small>'+a.location+'</small></div>').join('');loadQr().then(()=>apars.forEach(a=>new QRCode(document.getElementById('qr-'+a.id.replace(/[^a-zA-Z0-9_-]/g,'')),{text:location.origin+location.pathname+'?apar='+encodeURIComponent(a.id),width:128,height:128,correctLevel:QRCode.CorrectLevel.M}))).catch(()=>toast('QR tidak dapat dimuat. Periksa koneksi internet.'));
+  }
+  function closeLabels(){document.getElementById('qrOverlay')?.classList.add('hidden');}
+  function openInspection(id){const apar=data.apars.find(a=>a.id===id);if(!apar){toast('ID APAR tidak ditemukan: '+id);return;}closeLabels();page('inspection');setTimeout(()=>{const select=document.getElementById('inspectionApar');if(select){select.value=id;select.dispatchEvent(new Event('change'));}toast('APAR '+id+' siap diinspeksi.');},0);}
+  function readQr(e){const file=e.target.files[0];if(!file)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas'),ctx=c.getContext('2d');c.width=img.width;c.height=img.height;ctx.drawImage(img,0,0);const done=result=>{if(!result){toast('QR tidak terbaca. Coba foto yang lebih jelas.');return;}try{openInspection(new URL(result).searchParams.get('apar')||result);}catch{openInspection(result);}};if(window.jsQR){done(jsQR(ctx.getImageData(0,0,c.width,c.height).data,c.width,c.height)?.data);}else{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';s.onload=()=>done(jsQR(ctx.getImageData(0,0,c.width,c.height).data,c.width,c.height)?.data);s.onerror=()=>toast('Pemindai QR tidak dapat dimuat.');document.head.appendChild(s);}};img.src=URL.createObjectURL(file);e.target.value='';}
+  const priorRenderApars=renderApars;renderApars=function(){priorRenderApars();ensureQrUi();enhanceRows();};
+  const style=document.createElement('style');style.textContent='.qr-labels{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}.qr-label{text-align:center;border:1px dashed #8ca3b5;border-radius:9px;padding:12px;background:#fff}.qr-label canvas,.qr-label img{width:128px!important;height:128px!important;margin:0 auto 8px}.qr-label strong{display:block;letter-spacing:.4px}#qrOverlay{position:fixed;inset:0;z-index:20;overflow:auto;padding:18px;background:#f4f8fb}@media print{body.print-qr header,body.print-qr main,body.print-qr nav,body.print-qr #toast{display:none!important}body.print-qr #qrOverlay{display:block!important;position:static;padding:0;background:#fff}body.print-qr #qrOverlay .card{border:0;padding:0}.qr-label{break-inside:avoid}}';document.head.appendChild(style);
+  ensureQrUi();
+  setTimeout(()=>{enhanceRows();const id=new URLSearchParams(location.search).get('apar');if(id)openInspection(id);},0);
+})();
+</script>
