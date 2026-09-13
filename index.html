@@ -138,3 +138,21 @@ renderApars();
   setTimeout(()=>{enhanceRows();const id=new URLSearchParams(location.search).get('apar');if(id)openInspection(id);},0);
 })();
 </script>
+
+<!-- Firebase sinkronisasi data HP dan laptop -->
+<script>
+(() => {
+ const config={apiKey:'AIzaSyB2I7WviY-iGHHK-CAj2YCwgsOHT0o_DMA',authDomain:'inspeksi-apar-pln-uid-jakarta.firebaseapp.com',projectId:'inspeksi-apar-pln-uid-jakarta',storageBucket:'inspeksi-apar-pln-uid-jakarta.firebasestorage.app',messagingSenderId:'407328709646',appId:'1:407328709646:web:049628afc4b774a929b05f'};
+ const label=document.createElement('span');label.textContent='Menghubungkan sinkronisasi…';label.style.cssText='display:block;margin-top:3px;font-size:10px;opacity:.82';document.querySelector('.brand-title')?.append(label);
+ const status=(text,color='')=>{label.textContent=text;label.style.color=color};
+ const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.append(s)});
+ const refresh=()=>{try{renderDashboard();if(document.querySelector('#apar.active'))renderApars();if(document.querySelector('#inspection.active'))renderInspection();if(document.querySelector('#recap.active'))renderRecap()}catch(e){}};
+ (async()=>{try{
+  await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js');await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js');
+  firebase.initializeApp(config);const db=firebase.firestore(),doc=db.collection('appData').doc('current');let ready=false,writing=false,first=true;const localSave=save;
+  save=function(){localSave();if(!ready||writing)return;writing=true;status('Menyimpan ke cloud…','#d9edf7');doc.set({apars:Array.isArray(data.apars)?data.apars:[],inspections:Array.isArray(data.inspections)?data.inspections:[],updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).then(()=>status('Tersinkron','#baf2ce')).catch(()=>status('Gagal sinkron — data tetap di perangkat','#ffd9a8')).finally(()=>writing=false)};
+  firebase.auth().onAuthStateChanged(async user=>{if(!user)return;const old=await doc.get();if(old.exists&&Array.isArray(old.data().apars)){const cloud=old.data();data={apars:cloud.apars||[],inspections:cloud.inspections||[]};localSave();refresh()}else await doc.set({apars:Array.isArray(data.apars)?data.apars:[],inspections:Array.isArray(data.inspections)?data.inspections:[],updatedAt:firebase.firestore.FieldValue.serverTimestamp()});ready=true;status('Tersinkron','#baf2ce');doc.onSnapshot(s=>{if(first){first=false;return}const cloud=s.data();if(!cloud||!Array.isArray(cloud.apars)||s.metadata.hasPendingWrites)return;data={apars:cloud.apars||[],inspections:cloud.inspections||[]};localSave();refresh();status('Data diperbarui dari cloud','#baf2ce')},()=>status('Sinkronisasi tidak tersedia','#ffd9a8'))});
+  await firebase.auth().signInAnonymously();
+ }catch(e){status('Sinkronisasi belum aktif','#ffd9a8');console.warn(e)}})();
+})();
+</script>
