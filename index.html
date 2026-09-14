@@ -164,3 +164,19 @@ renderApars();
   if(select) extraBrands.forEach(brand=>{if(![...select.options].some(option=>option.value===brand)){const option=document.createElement('option');option.value=brand;option.textContent=brand;select.appendChild(option);}});
 })();
 </script>
+
+<script>
+(() => {
+  let editingApar=null;
+  const form=document.getElementById('aparForm'), idField=document.getElementById('aparId');
+  const heading=form.querySelector('h3'), submit=form.querySelector('button[type=submit]');
+  const resetForm=()=>{editingApar=null;form.reset();idField.readOnly=false;heading.textContent='Tambah APAR';submit.textContent='Simpan APAR';};
+  const previousRender=renderApars;
+  renderApars=function(){previousRender();document.querySelectorAll('#aparTable tr').forEach(row=>{const id=row.querySelector('td strong')?.textContent?.trim(),actions=row.querySelector('td:last-child');if(!id||!actions||actions.querySelector('[data-edit-apar]'))return;const button=document.createElement('button');button.type='button';button.className='btn small';button.textContent='Edit';button.dataset.editApar=id;actions.prepend(button);actions.prepend(document.createTextNode(' '));});};
+  document.getElementById('aparTable').onclick=e=>{const editId=e.target.dataset.editApar;if(editId){const apar=data.apars.find(a=>a.id===editId);if(!apar)return;editingApar=apar;form.classList.remove('hidden');heading.textContent='Edit Data APAR';submit.textContent='Simpan Perubahan';idField.value=apar.id;idField.readOnly=true;document.getElementById('aparLocation').value=apar.location||'';document.getElementById('aparType').value=apar.type||'Portable';document.getElementById('aparMedia').value=apar.media||'Dry Chemical Powder';document.getElementById('aparCapacity').value=apar.capacity||'';document.getElementById('aparBrand').value=apar.brand||'';document.getElementById('aparRefill').value=apar.refill||'';document.getElementById('aparExpiry').value=apar.expiry||'';document.getElementById('aparNote').value=apar.note||'';window.scrollTo(0,0);return;}const deleteId=e.target.dataset.delete;if(deleteId&&confirm('Hapus '+deleteId+'?')){data.apars=data.apars.filter(a=>a.id!==deleteId);save();renderApars();renderDashboard();toast('Data APAR dihapus.');}};
+  document.getElementById('showAparForm').onclick=()=>{resetForm();form.classList.remove('hidden');};
+  document.getElementById('cancelApar').onclick=()=>{resetForm();form.classList.add('hidden');};
+  form.onsubmit=e=>{e.preventDefault();const id=idField.value.trim().toUpperCase();if(!id){toast('ID APAR wajib diisi.');return;}const record={id,location:document.getElementById('aparLocation').value.trim(),type:document.getElementById('aparType').value.trim(),media:document.getElementById('aparMedia').value,capacity:document.getElementById('aparCapacity').value,brand:document.getElementById('aparBrand').value,refill:document.getElementById('aparRefill').value,expiry:document.getElementById('aparExpiry').value,note:document.getElementById('aparNote').value.trim()};if(editingApar){Object.assign(editingApar,record);toast('Data APAR berhasil diperbarui.');}else{if(data.apars.some(a=>a.id===id)){toast('ID APAR sudah digunakan.');return;}data.apars.push({...record,status:'Belum Diinspeksi'});toast('Data APAR berhasil ditambahkan.');}save();resetForm();form.classList.add('hidden');renderApars();renderDashboard();};
+  renderApars();
+})();
+</script>
