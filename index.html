@@ -156,3 +156,11 @@ renderApars();
  }catch(e){status('Sinkronisasi belum aktif','#ffd9a8');console.warn(e)}})();
 })();
 </script>
+
+<script>
+(() => {
+  const extraBrands=['PHYTON','ALPINDO','MATRIX','FIREINDO','PYROSAFE'];
+  const select=document.getElementById('aparBrand');
+  if(select) extraBrands.forEach(brand=>{if(![...select.options].some(option=>option.value===brand)){const option=document.createElement('option');option.value=brand;option.textContent=brand;select.appendChild(option);}});
+})();
+</script>
