@@ -202,3 +202,14 @@ renderApars();
   if (followUp && owner) owner.parentElement.insertBefore(followUp, owner);
 })();
 </script>
+
+<script>
+window.addEventListener('load', () => setTimeout(() => {
+  const followUp = document.getElementById('followUp')?.parentElement;
+  const owner = document.getElementById('actionOwner')?.parentElement;
+  if (followUp && owner) {
+    followUp.classList.add('full');
+    owner.parentElement.insertBefore(followUp, owner);
+  }
+}, 0));
+</script>
