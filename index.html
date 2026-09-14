@@ -213,3 +213,11 @@ window.addEventListener('load', () => setTimeout(() => {
   }
 }, 0));
 </script>
+
+<script>
+(() => {
+  const oldItem = 'Tabung, selang dan nozzle tidak rusak / bocor';
+  const position = checklistItems.indexOf(oldItem);
+  if (position >= 0) checklistItems.splice(position, 1, 'Tabung APAR tidak rusak / bocor', 'Selang APAR tidak rusak / bocor', 'Nozzle APAR tidak rusak / tersumbat');
+})();
+</script>
