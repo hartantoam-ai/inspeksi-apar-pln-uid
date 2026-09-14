@@ -194,3 +194,11 @@ renderApars();
   bind();
 })();
 </script>
+
+<script>
+(() => {
+  const followUp = document.getElementById('followUp')?.closest('div');
+  const owner = document.getElementById('actionOwner')?.closest('div');
+  if (followUp && owner) owner.parentElement.insertBefore(followUp, owner);
+})();
+</script>
