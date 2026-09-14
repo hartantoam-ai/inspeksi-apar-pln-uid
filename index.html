@@ -180,3 +180,17 @@ renderApars();
   renderApars();
 })();
 </script>
+
+
+<script>
+(() => {
+  let cameraStream=null;
+  let scanning=false;
+  const stopCamera=()=>{scanning=false;if(cameraStream){cameraStream.getTracks().forEach(track=>track.stop());cameraStream=null;}const video=document.getElementById('qrCamera');if(video)video.srcObject=null;};
+  const ensureScanner=()=>{if(document.getElementById('qrScanner'))return;document.body.insertAdjacentHTML('beforeend','<section id="qrScanner" class="hidden"><div class="card"><div class="toolbar"><h2>Pindai QR APAR</h2><button class="btn" id="closeScanner">Tutup</button></div><video id="qrCamera" autoplay playsinline muted></video><p id="qrScannerInfo">Arahkan kamera ke QR Code APAR.</p><button class="btn" id="scanFromPhoto">Gunakan Foto QR</button></div></section>');document.getElementById('closeScanner').onclick=()=>{stopCamera();document.getElementById('qrScanner').classList.add('hidden');};document.getElementById('scanFromPhoto').onclick=()=>{stopCamera();document.getElementById('qrScanner').classList.add('hidden');document.getElementById('qrFile').click();};const style=document.createElement('style');style.textContent='#qrScanner{position:fixed;inset:0;z-index:30;padding:18px;background:#f4f8fb;overflow:auto}#qrScanner .card{max-width:560px;margin:auto}#qrCamera{display:block;width:100%;max-height:65vh;background:#102334;border-radius:10px;object-fit:cover}#qrScannerInfo{color:#475569}';document.head.appendChild(style);};
+  const openResult=raw=>{let id='';try{id=new URL(raw).searchParams.get('apar')||'';}catch{}if(!id){id=String(raw||'').trim();}if(!id){document.getElementById('qrScannerInfo').textContent='QR tidak berisi ID APAR.';return;}stopCamera();location.href=location.pathname+'?apar='+encodeURIComponent(id);};
+  async function startCamera(){ensureScanner();const box=document.getElementById('qrScanner'),info=document.getElementById('qrScannerInfo'),video=document.getElementById('qrCamera');box.classList.remove('hidden');info.textContent='Arahkan kamera ke QR Code APAR.';if(!navigator.mediaDevices?.getUserMedia){info.textContent='Kamera belum didukung. Gunakan tombol Foto QR.';return;}try{cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});video.srcObject=cameraStream;await video.play();if(!('BarcodeDetector' in window)){info.textContent='Pemindai kamera belum didukung di perangkat ini. Gunakan tombol Foto QR.';return;}const detector=new BarcodeDetector({formats:['qr_code']});scanning=true;const detect=async()=>{if(!scanning)return;try{const found=await detector.detect(video);if(found[0]?.rawValue){openResult(found[0].rawValue);return;}}catch{}requestAnimationFrame(detect);};detect();}catch(error){info.textContent='Kamera tidak dapat dibuka. Izinkan akses kamera, lalu coba lagi atau gunakan Foto QR.';}}
+  const bind=()=>{const home=document.getElementById('homeScanQr'),scan=document.getElementById('qrScan');if(home)home.onclick=startCamera;if(scan)scan.onclick=startCamera;};
+  bind();
+})();
+</script>
