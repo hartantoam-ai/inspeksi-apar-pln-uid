@@ -325,3 +325,32 @@ window.addEventListener('load', () => setTimeout(() => {
   };
 })();
 </script>
+
+
+<script>
+(() => {
+ const style=document.createElement('style');
+ style.textContent='.report-photo-notes{display:grid;grid-template-columns:1.45fr .95fr;gap:14px;align-items:start;margin-top:14px}.report-photo-notes .report-grid{grid-template-columns:repeat(2,1fr);margin:0}.report-photo-notes .report-photo{min-height:210px}.report-notes h3{margin:0 0 8px}.report-notes .report-grid{grid-template-columns:1fr;gap:8px}.signature-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:50px;margin-top:24px;break-inside:avoid}.signature-box{text-align:center;min-height:92px;font-weight:600}.signature-space{height:52px;border-bottom:1px solid #64748b;margin:4px 0 6px}@media(max-width:620px){.report-photo-notes,.signature-grid{grid-template-columns:1fr}.report-photo-notes .report-photo{min-height:150px}}@media print{.report-photo-notes{grid-template-columns:1.45fr .95fr;gap:12px}.report-photo-notes .report-photo{min-height:185px}.signature-grid{margin-top:18px}.signature-space{height:42px}}';
+ document.head.appendChild(style);
+ function arrangeReport(){
+  const content=document.getElementById('inspectionReportContent'); if(!content||content.dataset.newLayout)return;
+  const headings=[...content.querySelectorAll('h3')];
+  const photoHeading=headings.find(h=>h.textContent.trim()==='Dokumentasi Foto');
+  const notesHeading=headings.find(h=>h.textContent.trim()==='Catatan dan Tindak Lanjut');
+  if(!photoHeading||!notesHeading)return;
+  const photoGrid=photoHeading.nextElementSibling, notesGrid=notesHeading.nextElementSibling;
+  if(!photoGrid||!notesGrid)return;
+  const layout=document.createElement('div');layout.className='report-photo-notes';
+  const photoSide=document.createElement('div');photoSide.className='report-photos';
+  const notesSide=document.createElement('div');notesSide.className='report-notes';
+  photoSide.append(photoHeading,photoGrid);notesSide.append(notesHeading,notesGrid);layout.append(photoSide,notesSide);
+  notesSide.insertAdjacentHTML('beforeend','<div class="signature-grid"><div class="signature-box">Tanda Tangan Pemeriksa<div class="signature-space"></div><span>Nama & tanda tangan</span></div><div class="signature-box">Tanda Tangan Penanggung Jawab<div class="signature-space"></div><span>Nama & tanda tangan</span></div></div>');
+  const tail=content.querySelector('div[style*="margin-top:22px"]');
+  if(tail)tail.remove();
+  content.querySelector('.card').appendChild(layout);content.dataset.newLayout='true';
+ }
+ new MutationObserver(arrangeReport).observe(document.getElementById('inspectionReportContent'),{childList:true,subtree:true});
+ arrangeReport();
+})();
+</script>
+<script>(()=>{const move=()=>{const content=document.getElementById('inspectionReportContent'),layout=content?.querySelector('.report-photo-notes'),sign=content?.querySelector('.signature-grid');if(layout&&sign&&sign.parentElement!==layout.parentElement)layout.insertAdjacentElement('afterend',sign);};new MutationObserver(move).observe(document.getElementById('inspectionReportContent'),{childList:true,subtree:true});move();})();</script>
