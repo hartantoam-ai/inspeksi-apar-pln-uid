@@ -221,3 +221,45 @@ window.addEventListener('load', () => setTimeout(() => {
   if (position >= 0) checklistItems.splice(position, 1, 'Tabung APAR tidak rusak / bocor', 'Selang APAR tidak rusak / bocor', 'Nozzle APAR tidak rusak / tersumbat');
 })();
 </script>
+
+<script>
+(() => {
+  let selectedInspectionReport=null;
+  const recapToolbar=document.querySelector('#recap .toolbar .actions');
+  if(!document.getElementById('recapSearch')) recapToolbar.insertAdjacentHTML('afterbegin','<input id="recapSearch" aria-label="Cari rekap berdasarkan ID APAR" placeholder="Cari ID APAR" style="max-width:190px">');
+  document.querySelector('main').insertAdjacentHTML('beforeend','<section id="inspectionReport" class="view"><div class="toolbar no-print"><h2>Formulir Inspeksi APAR</h2><div class="actions"><button class="btn" id="backToRecap">Kembali ke Rekap</button><button class="btn primary" id="printInspectionReport">Cetak / Simpan PDF</button></div></div><div id="inspectionReportContent"></div></section>');
+  const style=document.createElement('style');
+  style.textContent='.action-stack{display:flex;flex-direction:column;gap:6px;align-items:flex-start}.report-head{text-align:center;border-bottom:3px solid var(--navy);padding-bottom:12px;margin-bottom:15px}.report-head h2{color:var(--navy);margin:0 0 4px}.report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:12px 0}.report-field{border:1px solid var(--line);padding:8px;border-radius:6px}.report-field small{display:block;color:var(--muted)}.report-check{display:grid;grid-template-columns:34px 1fr 74px;border-bottom:1px solid var(--line);padding:8px 0}.report-check:last-child{border-bottom:0}.report-photo{min-height:135px;border:2px dashed #a9bac5;border-radius:7px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);padding:10px}.report-photo img{max-width:100%;max-height:240px;object-fit:contain}@media(max-width:620px){.report-grid{grid-template-columns:1fr}}@media print{.report-head{display:block!important}.report-grid{grid-template-columns:repeat(3,1fr)}}';
+  document.head.appendChild(style);
+  const formatDate=value=>{if(!value)return '-';const d=new Date(value+'T00:00:00');return Number.isNaN(d)?value:new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'long',year:'numeric'}).format(d);};
+  const recordFor=id=>recapRecords().find(record=>record.aparId===id);
+  const reportPhoto=(src,label)=>src?'<div class="report-photo"><img src="'+esc(src)+'" alt="'+label+'"></div>':'<div class="report-photo"><div>📷<br><strong>'+label+'</strong><br><small>Foto akan tampil setelah fitur penyimpanan foto diaktifkan.</small></div></div>';
+  function openReport(record){
+    if(!record)return;selectedInspectionReport=record;
+    const apar=data.apars.find(item=>item.id===record.aparId)||{};
+    const checks=(record.checks||[]).map((value,index)=>'<div class="report-check"><strong>'+(index+1)+'</strong><span>'+esc(checklistItems[index]||'Pemeriksaan kondisi')+'</span><strong>'+esc(value)+'</strong></div>').join('');
+    const photos=record.photos||{};
+    document.getElementById('inspectionReportContent').innerHTML='<div class="card"><div class="report-head"><h2>FORMULIR INSPEKSI APAR</h2><strong>PLN UID JAKARTA RAYA</strong></div><div class="report-grid"><div class="report-field"><small>ID APAR</small><strong>'+esc(record.aparId)+'</strong></div><div class="report-field"><small>Tanggal inspeksi</small><strong>'+formatDate(record.date)+'</strong></div><div class="report-field"><small>Status hasil</small><span class="status '+classFor(record.result)+'">'+esc(record.result)+'</span></div><div class="report-field"><small>Lokasi</small><strong>'+esc(record.location)+'</strong></div><div class="report-field"><small>Media / kapasitas</small><strong>'+esc(apar.media||'-')+' / '+esc(apar.capacity||'-')+' kg</strong></div><div class="report-field"><small>Merk APAR</small><strong>'+esc(apar.brand||'-')+'</strong></div></div><h3>Hasil Pemeriksaan Kondisi</h3><div>'+checks+'</div><h3 style="margin-top:18px">Dokumentasi Foto</h3><div class="report-grid"><div><strong>Foto Tabung APAR</strong>'+reportPhoto(photos.tabung,'Foto Tabung APAR')+'</div><div><strong>Foto Lokasi Tabung</strong>'+reportPhoto(photos.lokasi,'Foto Lokasi Tabung')+'</div></div><h3 style="margin-top:18px">Catatan dan Tindak Lanjut</h3><div class="report-grid"><div class="report-field"><small>Temuan / catatan</small><strong>'+esc(record.notes||'-')+'</strong></div><div class="report-field"><small>Tindak lanjut</small><strong>'+esc(record.followUp||'-')+'</strong></div><div class="report-field"><small>PIC / target selesai</small><strong>'+esc(record.owner||'-')+' / '+formatDate(record.target)+'</strong></div></div><div style="margin-top:22px"><strong>Pemeriksa: </strong>'+esc(record.inspector||'-')+'</div></div>';
+    page('inspectionReport');
+  }
+  const recapHeader=document.querySelector('#recapTable').closest('table').querySelector('thead tr');
+  if(!recapHeader.querySelector('.pdf-column')) recapHeader.lastElementChild.textContent='Aksi';
+  renderRecap=function(){
+    const query=(document.getElementById('recapSearch')?.value||'').trim().toUpperCase();
+    const records=recapRecords().filter(record=>!query||record.aparId.toUpperCase().includes(query));
+    document.getElementById('recapTable').innerHTML=records.length?records.map(record=>'<tr><td>'+esc(record.date)+'</td><td><strong>'+esc(record.aparId)+'</strong></td><td>'+esc(record.location)+'</td><td>'+esc(record.inspector)+'</td><td><span class="status '+classFor(record.result)+'">'+esc(record.result)+'</span></td><td>'+esc(record.followUp)+'</td><td>'+esc(record.notes||'-')+'</td><td class="no-print"><div class="action-stack"><button class="btn small" data-edit-record="'+esc(record.aparId)+'">Edit</button><button class="btn small primary" data-pdf-record="'+esc(record.aparId)+'">PDF</button></div></td></tr>').join(''):'<tr><td colspan="8" class="empty">Data inspeksi tidak ditemukan.</td></tr>';
+  };
+  document.getElementById('recapSearch').oninput=renderRecap;
+  document.getElementById('recapTable').onclick=event=>{
+    const pdfId=event.target.dataset.pdfRecord;if(pdfId){openReport(recordFor(pdfId));return;}
+    const editId=event.target.dataset.editRecord;if(!editId)return;
+    const record=recordFor(editId);if(!record)return;
+    editingInspectionRecord=record;page('inspection');
+    const select=document.getElementById('inspectionApar');const option=[...select.options].find(item=>item.value===record.aparId);if(option)option.disabled=false;
+    select.value=record.aparId;select.disabled=true;document.getElementById('inspectionDate').value=record.date;document.getElementById('inspector').value=record.inspector;document.getElementById('followUp').value=record.followUp;document.getElementById('inspectionNotes').value=record.notes||'';document.getElementById('actionOwner').value=record.owner||'';document.getElementById('targetDate').value=record.target||'';
+    (record.checks||[]).forEach((value,index)=>{const input=document.querySelector('input[name="check'+index+'"][value="'+value+'"]');if(input)input.checked=true;});toast('Mengubah hasil inspeksi '+record.aparId+'.');
+  };
+  document.getElementById('backToRecap').onclick=()=>page('recap');
+  document.getElementById('printInspectionReport').onclick=()=>window.print();
+})();
+</script>
