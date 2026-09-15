@@ -263,3 +263,65 @@ window.addEventListener('load', () => setTimeout(() => {
   document.getElementById('printInspectionReport').onclick=()=>window.print();
 })();
 </script>
+
+
+<script>
+(() => {
+  const form = document.getElementById('inspectionForm');
+  if (!form || document.getElementById('photoTabungInput')) return;
+  const pendingPhotos = {tabung:null, lokasi:null};
+  const photoArea = document.createElement('section');
+  photoArea.id = 'inspectionPhotos';
+  photoArea.innerHTML = '<h3 style="margin-top:20px">Dokumentasi Foto <small style="font-weight:normal;color:var(--muted)">(maksimal 2 foto)</small></h3><div class="photo-input-grid"><div class="photo-input-card"><strong>Foto Tabung APAR</strong><img id="photoTabungPreview" class="photo-preview hidden" alt="Pratinjau foto tabung"><button class="btn" type="button" id="takePhotoTabung">Ambil Foto Tabung</button><input id="photoTabungInput" type="file" accept="image/*" capture="environment" hidden><small>Foto baru akan menggantikan foto tabung sebelumnya untuk ID APAR ini.</small></div><div class="photo-input-card"><strong>Foto Lokasi Tabung</strong><img id="photoLokasiPreview" class="photo-preview hidden" alt="Pratinjau foto lokasi"><button class="btn" type="button" id="takePhotoLokasi">Ambil Foto Lokasi</button><input id="photoLokasiInput" type="file" accept="image/*" capture="environment" hidden><small>Foto baru akan menggantikan foto lokasi sebelumnya untuk ID APAR ini.</small></div></div>';
+  document.getElementById('checklist').insertAdjacentElement('afterend', photoArea);
+  const style = document.createElement('style');
+  style.textContent = '.photo-input-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.photo-input-card{border:1px solid var(--line);border-radius:9px;padding:12px;display:grid;gap:9px;background:var(--soft)}.photo-input-card small{color:var(--muted);font-size:12px}.photo-preview{width:100%;height:180px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:#fff}@media(max-width:620px){.photo-input-grid{grid-template-columns:1fr}}';
+  document.head.appendChild(style);
+  function bindPhoto(slot){
+    const input=document.getElementById(slot==='tabung'?'photoTabungInput':'photoLokasiInput');
+    const button=document.getElementById(slot==='tabung'?'takePhotoTabung':'takePhotoLokasi');
+    const preview=document.getElementById(slot==='tabung'?'photoTabungPreview':'photoLokasiPreview');
+    button.onclick=()=>input.click();
+    input.onchange=()=>{const file=input.files&&input.files[0];if(!file)return;pendingPhotos[slot]=file;preview.src=URL.createObjectURL(file);preview.classList.remove('hidden');};
+  }
+  bindPhoto('tabung'); bindPhoto('lokasi');
+  function clearPending(){
+    ['tabung','lokasi'].forEach(slot=>{pendingPhotos[slot]=null;const input=document.getElementById(slot==='tabung'?'photoTabungInput':'photoLokasiInput');const preview=document.getElementById(slot==='tabung'?'photoTabungPreview':'photoLokasiPreview');input.value='';preview.removeAttribute('src');preview.classList.add('hidden');});
+  }
+  const wait = ms => new Promise(resolve=>setTimeout(resolve,ms));
+  async function storage(){
+    for(let i=0;i<40;i++){if(window.firebase&&firebase.apps&&firebase.apps.length)break;await wait(250);}
+    if(!window.firebase||!firebase.apps||!firebase.apps.length)throw new Error('Sinkronisasi Firebase belum siap. Coba lagi beberapa saat.');
+    if(!firebase.storage){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js';s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});}
+    return firebase.storage();
+  }
+  async function compress(file){
+    if(!file.type.startsWith('image/'))return file;
+    const image=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=URL.createObjectURL(file);});
+    const scale=Math.min(1,1280/Math.max(image.width,image.height));
+    const canvas=document.createElement('canvas');canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+    return await new Promise(resolve=>canvas.toBlob(blob=>resolve(blob||file),'image/jpeg',0.78));
+  }
+  async function uploadPhoto(service, aparId, slot, file){
+    const image=await compress(file); const ref=service.ref('apar-photos/'+encodeURIComponent(aparId)+'/'+slot+'.jpg');
+    await ref.put(image,{contentType:'image/jpeg'}); return await ref.getDownloadURL();
+  }
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    const apar=data.apars.find(item=>item.id===document.getElementById('inspectionApar').value);
+    if(!apar){toast('Tambahkan APAR terlebih dahulu.');return;}
+    if(!editingInspectionRecord&&inspectedOnDate(apar.id,document.getElementById('inspectionDate').value)){toast(apar.id+' sudah diinspeksi pada tanggal ini.');renderInspection();return;}
+    const submit=form.querySelector('button[type=submit]'); const originalText=submit.textContent; submit.disabled=true;
+    try{
+      const checks=checklistItems.map((_,i)=>document.querySelector('input[name="check'+i+'"]:checked').value);
+      const result=checks.includes('Tidak')?'Tidak OK':'OK';
+      const photos={...((editingInspectionRecord&&editingInspectionRecord.photos)||{})};
+      if(pendingPhotos.tabung||pendingPhotos.lokasi){submit.textContent='Mengunggah foto…';const service=await storage();for(const slot of ['tabung','lokasi'])if(pendingPhotos[slot])photos[slot]=await uploadPhoto(service,apar.id,slot,pendingPhotos[slot]);}
+      const record={date:document.getElementById('inspectionDate').value,aparId:apar.id,location:apar.location,inspector:document.getElementById('inspector').value.trim(),checks,result,followUp:document.getElementById('followUp').value,notes:document.getElementById('inspectionNotes').value.trim(),owner:document.getElementById('actionOwner').value.trim(),target:document.getElementById('targetDate').value,photos};
+      if(editingInspectionRecord){Object.assign(editingInspectionRecord,record);editingInspectionRecord=null;document.getElementById('inspectionApar').disabled=false;toast('Hasil inspeksi berhasil diperbarui.');}else{data.inspections.push(record);toast('Hasil inspeksi disimpan.');}
+      apar.status=result==='OK'?'OK':'Tidak OK';apar.note=record.notes||apar.note;save();form.reset();clearPending();document.getElementById('inspectionDate').value=new Date().toISOString().slice(0,10);renderDashboard();page('recap');
+    }catch(error){console.error(error);toast('Foto belum dapat diunggah. Periksa koneksi dan aturan Storage, lalu coba lagi.');}
+    finally{submit.disabled=false;submit.textContent=originalText;}
+  };
+})();
+</script>
