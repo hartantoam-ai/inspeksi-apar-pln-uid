@@ -354,3 +354,26 @@ window.addEventListener('load', () => setTimeout(() => {
 })();
 </script>
 <script>(()=>{const move=()=>{const content=document.getElementById('inspectionReportContent'),layout=content?.querySelector('.report-photo-notes'),sign=content?.querySelector('.signature-grid');if(layout&&sign&&sign.parentElement!==layout.parentElement)layout.insertAdjacentElement('afterend',sign);};new MutationObserver(move).observe(document.getElementById('inspectionReportContent'),{childList:true,subtree:true});move();})();</script>
+
+
+<script>
+(() => {
+  const xlsxUrl='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+  const loadXlsx=()=>window.XLSX?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=xlsxUrl;script.onload=resolve;script.onerror=reject;document.head.appendChild(script);});
+  document.getElementById('exportMaster').onclick=async()=>{
+    const button=document.getElementById('exportMaster');const original=button.textContent;button.disabled=true;button.textContent='Menyiapkan Excel…';
+    try{
+      await loadXlsx();
+      const headers=['ID APAR','Lokasi','Jenis','Media APAR','Kapasitas (kg)','Merk APAR','Tanggal Isi Ulang','Tanggal Kedaluwarsa','Status','Catatan'];
+      const rows=data.apars.map(a=>[a.id,a.location,a.type,a.media,Number(a.capacity)||a.capacity,a.brand||'',a.refill||'',a.expiry||'',a.status,a.note||'']);
+      const sheet=XLSX.utils.aoa_to_sheet([['DATA MASTER APAR'],['Diekspor: '+new Intl.DateTimeFormat('id-ID',{dateStyle:'long',timeStyle:'short'}).format(new Date())],[],headers,...rows]);
+      sheet['!merges']=[XLSX.utils.decode_range('A1:J1'),XLSX.utils.decode_range('A2:J2')];
+      sheet['!cols']=[{wch:14},{wch:28},{wch:14},{wch:25},{wch:16},{wch:16},{wch:18},{wch:20},{wch:18},{wch:32}];
+      sheet['!autofilter']={ref:'A4:J'+(rows.length+4)};
+      const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,sheet,'Data Master APAR');XLSX.writeFile(book,'data-master-apar.xlsx');
+      toast('File Excel berhasil dibuat.');
+    }catch(error){console.error(error);toast('Ekspor Excel belum dapat dibuat. Periksa koneksi internet lalu coba lagi.');}
+    finally{button.disabled=false;button.textContent=original;}
+  };
+})();
+</script>
